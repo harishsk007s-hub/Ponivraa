@@ -1,0 +1,16 @@
+{
+  "name": "ponivraa-fullstack",
+  "version": "1.0.0",
+  "description": "Ponivraa - Farm-Fresh Fruit Delivery e-Commerce Platform (Alagarkovil, Tamil Nadu)",
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run start",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -n \"backend,frontend\" -c \"green,yellow\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
+
