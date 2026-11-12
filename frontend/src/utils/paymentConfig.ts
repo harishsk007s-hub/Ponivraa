@@ -1,8 +1,8 @@
 export const PAYMENT_CONFIG = {
   upiId: 'kishoremohan280-2@okicici',
   upiName: 'Ponivraa Farm (Kishore M)',
-  qrImage: '/upi-qr.png',
-  qrImageFallback: '/images/upi-qr.png',
+  qrImage: '/upi-qr.jpg',
+  qrImageFallback: '/upi-qr.png',
   bankDetails: {
     accountHolder: 'Kishore M',
     bankName: 'ICICI Bank',
@@ -11,4 +11,3 @@ export const PAYMENT_CONFIG = {
     branch: 'Shollinganallur, Chennai',
   },
 };
-

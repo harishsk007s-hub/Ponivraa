@@ -19,9 +19,9 @@ export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/admin/login', { replace: true });
   };
 
   const navItems = [

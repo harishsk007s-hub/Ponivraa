@@ -10,7 +10,8 @@ import {
   PaymentStatus,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
 
 const authHeaders = (token?: string) => {
   const authToken = token || localStorage.getItem('ponivraa_admin_token') || '';
@@ -129,7 +130,7 @@ export const api = {
   },
 
   async updatePaymentStatus(id: string, paymentStatus: PaymentStatus, token?: string): Promise<Order> {
-    const res = await fetch(`${API_BASE}/orders/${id}/payment-status`, {
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(id)}/payment-status`, {
       method: 'PATCH',
       headers: authHeaders(token),
       body: JSON.stringify({ paymentStatus }),
@@ -160,7 +161,7 @@ export const api = {
   },
 
   async updateOrderStatus(id: string, status: OrderStatus, token?: string): Promise<Order> {
-    const res = await fetch(`${API_BASE}/orders/${id}/status`, {
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(id)}/status`, {
       method: 'PATCH',
       headers: authHeaders(token),
       body: JSON.stringify({ status }),
@@ -171,7 +172,7 @@ export const api = {
   },
 
   async deleteOrder(id: string, token?: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/orders/${id}`, {
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: authHeaders(token),
     });
@@ -234,6 +235,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
@@ -241,9 +243,22 @@ export const api = {
     return data.data;
   },
 
+  async logoutAdmin(): Promise<void> {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.warn('Logout API warning:', e);
+    }
+  },
+
   async getAdminMe(token?: string): Promise<AdminUser> {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: authHeaders(token),
+      credentials: 'include',
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to fetch profile');

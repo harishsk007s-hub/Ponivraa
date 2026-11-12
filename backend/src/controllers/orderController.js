@@ -227,6 +227,30 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
+// Helper to look up an order by MongoDB _id or user-friendly orderId (e.g. #ORD-123456)
+const findOrderByIdOrOrderId = async (identifier) => {
+  if (!identifier) return null;
+  const raw = String(identifier).trim();
+  const cleanId = raw.replace(/^#/, '');
+
+  let order = await Order.findOne({
+    $or: [
+      { orderId: new RegExp(`^#?${cleanId}$`, 'i') },
+      { orderId: `#${cleanId}` },
+      { orderId: cleanId },
+      ...(raw.length === 24 ? [{ _id: raw }] : []),
+      ...(cleanId.length === 24 ? [{ _id: cleanId }] : []),
+    ],
+  });
+
+  if (!order) {
+    try {
+      order = await Order.findById(raw);
+    } catch (e) {}
+  }
+  return order;
+};
+
 // @desc Update order status
 // @route PATCH /api/orders/:id/status
 // @access Private (Admin)
@@ -236,7 +260,7 @@ export const updateOrderStatus = async (req, res) => {
     const validStatuses = ['PENDING', 'Placed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
     const validPaymentStatuses = ['Pending Payment', 'Payment Verification', 'Paid'];
 
-    const order = await Order.findById(req.params.id);
+    const order = await findOrderByIdOrOrderId(req.params.id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -296,24 +320,7 @@ export const submitPaymentVerification = async (req, res) => {
       });
     }
 
-    const cleanId = orderId.trim().replace(/^#/, '');
-    const cleanQuery = new RegExp(`^#?${cleanId}$`, 'i');
-
-    let order = await Order.findOne({
-      $or: [
-        { orderId: cleanQuery },
-        { orderId: `#${cleanId}` },
-        { orderId: cleanId },
-        ...(orderId.length === 24 ? [{ _id: orderId }] : []),
-      ],
-    });
-
-    if (!order) {
-      try {
-        order = await Order.findById(orderId);
-      } catch (e) {}
-    }
-
+    const order = await findOrderByIdOrOrderId(orderId);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -401,7 +408,7 @@ export const updatePaymentStatus = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(req.params.id);
+    const order = await findOrderByIdOrOrderId(req.params.id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -432,7 +439,7 @@ export const updatePaymentStatus = async (req, res) => {
 // @access Private (Admin)
 export const deleteOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await findOrderByIdOrOrderId(req.params.id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -440,7 +447,11 @@ export const deleteOrder = async (req, res) => {
       });
     }
 
-    await Order.findByIdAndDelete(req.params.id);
+    if (order.deleteOne) {
+      await order.deleteOne();
+    } else {
+      await Order.findByIdAndDelete(order._id);
+    }
 
     return res.status(200).json({
       success: true,

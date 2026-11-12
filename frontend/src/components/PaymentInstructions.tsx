@@ -55,7 +55,7 @@ export const PaymentInstructions: React.FC<PaymentInstructionsProps> = ({
   const handleDownloadQR = () => {
     const link = document.createElement('a');
     link.href = PAYMENT_CONFIG.qrImage;
-    link.download = `Ponivraa-UPI-QR-${order.orderId.replace(/[^a-zA-Z0-9]/g, '')}.png`;
+    link.download = `Ponivraa-UPI-QR-${order.orderId.replace(/[^a-zA-Z0-9]/g, '')}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -228,23 +228,23 @@ export const PaymentInstructions: React.FC<PaymentInstructionsProps> = ({
             {/* QR Code and Actions Card */}
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 flex flex-col sm:flex-row items-center gap-5">
               {/* QR Image Box */}
-              <div className="relative group shrink-0">
-                <div className="w-44 h-44 sm:w-48 sm:h-48 rounded-2xl bg-white border-2 border-primary/20 p-2 shadow-sm flex items-center justify-center">
+              <div className="relative group shrink-0 mx-auto sm:mx-0">
+                <div className="w-56 sm:w-60 rounded-2xl bg-white border-2 border-primary/20 p-2 shadow-sm flex items-center justify-center overflow-hidden">
                   <img
                     src={PAYMENT_CONFIG.qrImage}
                     onError={(e) => {
-                      // Fallback to secondary image location or online generator if needed
+                      // Fallback to secondary image location
                       const target = e.currentTarget;
                       if (!target.src.includes(PAYMENT_CONFIG.qrImageFallback)) {
                         target.src = PAYMENT_CONFIG.qrImageFallback;
                       }
                     }}
-                    alt="Ponivraa Farm UPI QR Code"
-                    className="w-full h-full object-contain rounded-xl"
+                    alt="Ponivraa Farm UPI QR Scanner - Kishore M"
+                    className="w-full h-auto max-h-[340px] object-contain rounded-xl"
                   />
                 </div>
-                <div className="text-center mt-1.5">
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
+                <div className="text-center mt-2">
+                  <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider bg-cream px-3 py-1 rounded-full border border-gray-200 inline-block">
                     Scan with any UPI App
                   </span>
                 </div>

@@ -143,18 +143,27 @@ export const seedProducts = [
 
 export const seedDatabase = async () => {
   try {
-    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@ponivraa.com').toLowerCase();
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const adminEmail = (process.env.ADMIN_EMAIL || 'Kishore@gmail.com').toLowerCase().trim();
+    const adminPassword = (process.env.ADMIN_PASSWORD || 'Kishore@2026').trim();
 
-    let admin = await Admin.findOne({ email: adminEmail });
-    if (!admin) {
-      admin = new Admin({
+    const existingAdmin = await Admin.findOne({ email: adminEmail });
+    if (!existingAdmin) {
+      const admin = new Admin({
         email: adminEmail,
         password: adminPassword,
-        name: 'Ponivraa Master Admin',
+        name: 'Kishore M (Admin)',
       });
       await admin.save();
-      console.log(`Default admin created: ${adminEmail} (password: ${adminPassword})`);
+      console.log(`[AUTH] Initialized secure admin account: ${adminEmail}`);
+    } else {
+      const isMatch = await existingAdmin.matchPassword(adminPassword);
+      if (!isMatch) {
+        existingAdmin.password = adminPassword;
+        await existingAdmin.save();
+        console.log(`[AUTH] Updated password for admin account: ${adminEmail}`);
+      } else {
+        console.log(`[AUTH] Verified existing admin account: ${adminEmail}`);
+      }
     }
 
     // Replace products with updated categories

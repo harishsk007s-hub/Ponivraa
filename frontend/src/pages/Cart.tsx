@@ -13,11 +13,19 @@ import {
   Mail,
   Home as HomeIcon,
   Building,
+  QrCode,
+  Copy,
+  Check,
+  Building2,
+  Smartphone,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { api } from '../api';
 import { PaymentMethod } from '../types';
 import { getOrderConfirmationWhatsAppUrl } from '../utils/whatsapp';
+import { PAYMENT_CONFIG } from '../utils/paymentConfig';
 
 export const Cart: React.FC = () => {
   const { cart, updateQuantity, removeFromCart, totalAmount, clearCart } = useCart();
@@ -33,6 +41,7 @@ export const Cart: React.FC = () => {
   const [pincode, setPincode] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -41,28 +50,21 @@ export const Cart: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  if (cart.length === 0) {
-    return (
-      <div className="min-h-[70vh] bg-cream flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl border border-gray-200 p-8 sm:p-12 text-center max-w-md shadow-sm space-y-4">
-          <div className="w-16 h-16 rounded-full bg-lightgreen text-primary flex items-center justify-center mx-auto">
-            <ShoppingBag className="w-8 h-8" />
-          </div>
-          <h2 className="font-serif text-2xl font-bold text-darktext">Your Produce Cart is Empty</h2>
-          <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
-            Support local farmers in Alagarkovil and fill your basket with pure, naturally grown mangoes, honey, and guavas.
-          </p>
-          <Link
-            to="/products"
-            className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold text-xs px-6 py-3.5 rounded-xl shadow transition-colors cursor-pointer"
-          >
-            <span>Explore Fresh Harvest</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2500);
+  };
+
+  const normalizePhone = (raw: string) => {
+    let clean = raw.replace(/\D/g, '');
+    if (clean.length === 12 && clean.startsWith('91')) {
+      clean = clean.substring(2);
+    } else if (clean.length === 11 && clean.startsWith('0')) {
+      clean = clean.substring(1);
+    }
+    return clean;
+  };
 
   // VALIDATION RULES
   const validateField = (field: string, val: string) => {
@@ -71,7 +73,7 @@ export const Cart: React.FC = () => {
         if (!val.trim()) return 'Customer name is required';
         break;
       case 'phone': {
-        const clean = val.replace(/\D/g, '');
+        const clean = normalizePhone(val);
         if (!/^[6-9]\d{9}$/.test(clean)) {
           return 'Enter a valid 10-digit mobile number';
         }
@@ -83,8 +85,8 @@ export const Cart: React.FC = () => {
         }
         break;
       case 'streetAddress':
-        if (!val.trim() || val.trim().length < 5) {
-          return 'House / street address is required (minimum 5 characters)';
+        if (!val.trim() || val.trim().length < 3) {
+          return 'Street / house address is required';
         }
         break;
       case 'city':
@@ -112,22 +114,7 @@ export const Cart: React.FC = () => {
     setErrors((prev) => ({ ...prev, [field]: err }));
   };
 
-  // Full Address check: minimum 10 chars total
   const fullAddress = `${streetAddress.trim()}, ${city.trim()}, ${stateName.trim()}`;
-  const isAddressValid =
-    streetAddress.trim().length >= 5 &&
-    city.trim().length > 0 &&
-    stateName.trim().length > 0 &&
-    fullAddress.length >= 10;
-
-  // Global form validity check to enable/disable button (Email is optional)
-  const isEmailValid = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const isFormValid =
-    customerName.trim().length > 0 &&
-    /^[6-9]\d{9}$/.test(phone.replace(/\D/g, '')) &&
-    isEmailValid &&
-    isAddressValid &&
-    /^[1-9]\d{5}$/.test(pincode.replace(/\D/g, ''));
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,19 +147,24 @@ export const Cart: React.FC = () => {
       pincode: true,
     });
 
-    if (Object.values(allErrors).some((err) => Boolean(err))) {
+    const hasErrors = Object.values(allErrors).some((err) => Boolean(err));
+    if (hasErrors) {
+      setServerError('Please fill in the required fields highlighted below to place your order.');
       return;
     }
 
     try {
       setIsSubmitting(true);
 
+      const cleanPhone = normalizePhone(phone);
+      const cleanPincode = pincode.replace(/\D/g, '');
+
       const orderPayload = {
         customerName: customerName.trim(),
-        phone: phone.replace(/\D/g, ''),
+        phone: cleanPhone,
         email: email.trim() ? email.trim() : undefined,
         address: fullAddress,
-        pincode: pincode.replace(/\D/g, ''),
+        pincode: cleanPincode,
         products: cart.map((item) => ({
           productId: item.product._id,
           name: item.product.name,
@@ -203,7 +195,8 @@ export const Cart: React.FC = () => {
       // Clear cart
       clearCart();
 
-      // Navigate to confirmation page passing state with payment instructions
+      // Scroll smoothly to top and navigate to confirmation & payment page
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       navigate(`/order-confirmation/${result.order.orderId}`, {
         state: { order: result.order, whatsappUrl },
       });
@@ -214,6 +207,7 @@ export const Cart: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-cream py-10 sm:py-14">
@@ -548,12 +542,12 @@ export const Cart: React.FC = () => {
                 </div>
 
                 {/* Payment Method Selector - Online Payment Only (No COD) */}
-                <div className="pt-4 border-t border-gray-100 space-y-2.5">
+                <div className="pt-4 border-t border-gray-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-                      Payment Method *
+                      Online Payment Method *
                     </label>
-                    <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
                       No Cash on Delivery
                     </span>
                   </div>
@@ -610,9 +604,115 @@ export const Cart: React.FC = () => {
                     </label>
                   </div>
 
-                  <p className="text-[11px] text-gray-500 bg-cream p-2.5 rounded-xl border border-gray-200">
-                    Payment instructions and QR scanner will appear immediately upon placing your order.
-                  </p>
+                  {/* Immediate Payment Details Preview on Checkout Screen */}
+                  {paymentMethod === 'UPI' ? (
+                    <div className="bg-[#F4FAF5] p-3.5 rounded-2xl border border-[#C8E6C9] space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-[#1B4332]">
+                          <QrCode className="w-4 h-4 text-primary" />
+                          <span>Official Farm UPI Scanner</span>
+                        </div>
+                        <span className="text-[10px] bg-white border border-[#C8E6C9] text-primary px-2 py-0.5 rounded-md font-semibold">
+                          Kishore M
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-[#C8E6C9]">
+                        <img
+                          src={PAYMENT_CONFIG.qrImage}
+                          alt="Ponivraa Farm QR Code"
+                          className="w-16 h-16 object-contain rounded-lg border border-gray-100 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] text-gray-500 block uppercase font-bold">
+                            UPI ID (Copy & Pay)
+                          </span>
+                          <span className="font-mono text-xs font-bold text-darktext block truncate">
+                            {PAYMENT_CONFIG.upiId}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(PAYMENT_CONFIG.upiId, 'upi-cart')}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline mt-1 cursor-pointer"
+                          >
+                            {copiedField === 'upi-cart' ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-600">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy UPI ID</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[#2D5A32]">
+                        Click <strong>Place Order & Pay Online</strong> to open the full payment verification and WhatsApp confirmation screen.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-[#F4FAF5] p-3.5 rounded-2xl border border-[#C8E6C9] space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-[#1B4332]">
+                          <Building2 className="w-4 h-4 text-primary" />
+                          <span>ICICI Bank Transfer Details</span>
+                        </div>
+                        <span className="text-[10px] bg-white border border-[#C8E6C9] text-primary px-2 py-0.5 rounded-md font-semibold">
+                          Kishore M
+                        </span>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-xl border border-[#C8E6C9] space-y-1.5 text-[11px]">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">Account No:</span>
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-darktext">
+                            <span>{PAYMENT_CONFIG.bankDetails.accountNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(PAYMENT_CONFIG.bankDetails.accountNumber, 'acc-cart')}
+                              className="p-1 hover:text-primary cursor-pointer"
+                              title="Copy Account Number"
+                            >
+                              {copiedField === 'acc-cart' ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-gray-500" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">IFSC Code:</span>
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-darktext">
+                            <span>{PAYMENT_CONFIG.bankDetails.ifscCode}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(PAYMENT_CONFIG.bankDetails.ifscCode, 'ifsc-cart')}
+                              className="p-1 hover:text-primary cursor-pointer"
+                              title="Copy IFSC Code"
+                            >
+                              {copiedField === 'ifsc-cart' ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-gray-500" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">Branch:</span>
+                          <span className="font-semibold text-darktext">
+                            {PAYMENT_CONFIG.bankDetails.branch}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cost Breakdown */}
@@ -631,11 +731,18 @@ export const Cart: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Place Order Button - Disabled until form is valid */}
+                {serverError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{serverError}</span>
+                  </div>
+                )}
+
+                {/* Place Order Button - Always enabled and clickable */}
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isFormValid}
-                  className="w-full py-4 px-4 bg-primary hover:bg-primary-hover disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  disabled={isSubmitting}
+                  className="w-full py-4 px-4 bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-white font-bold text-sm rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
                   {isSubmitting ? (
                     <span>Placing Order & Loading Payment...</span>

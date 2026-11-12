@@ -44,15 +44,35 @@ const MongooseAdmin = mongoose.models.Admin || mongoose.model('Admin', adminSche
 
 // In-Memory Model Wrapper
 class MemoryAdminModel {
+  static async countDocuments() {
+    return memoryStoreInstance.admins.length;
+  }
+
   static async findOne(filter = {}) {
+    let admin = null;
     if (filter.email) {
-      return (
-        memoryStoreInstance.admins.find(
-          (a) => a.email.toLowerCase() === filter.email.toLowerCase()
-        ) || null
+      admin = memoryStoreInstance.admins.find(
+        (a) => a.email.toLowerCase() === filter.email.toLowerCase()
       );
+    } else {
+      admin = memoryStoreInstance.admins[0] || null;
     }
-    return memoryStoreInstance.admins[0] || null;
+
+    if (admin && !admin.matchPassword) {
+      admin.matchPassword = async function (enteredPassword) {
+        return await bcrypt.compare(enteredPassword, this.password);
+      };
+    }
+
+    const queryObj = {
+      select: function () {
+        return queryObj;
+      },
+      then: function (resolve, reject) {
+        return Promise.resolve(admin || null).then(resolve, reject);
+      },
+    };
+    return queryObj;
   }
 
   static findById(id) {
@@ -86,12 +106,21 @@ class MemoryAdminModel {
   }
 
   async save() {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (!this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    }
     this.matchPassword = async function (enteredPassword) {
       return await bcrypt.compare(enteredPassword, this.password);
     };
-    memoryStoreInstance.admins.push(this);
+    const existingIndex = memoryStoreInstance.admins.findIndex(
+      (a) => a.email.toLowerCase() === this.email.toLowerCase()
+    );
+    if (existingIndex >= 0) {
+      memoryStoreInstance.admins[existingIndex] = this;
+    } else {
+      memoryStoreInstance.admins.push(this);
+    }
     return this;
   }
 }

@@ -1,48 +1,83 @@
 import Admin from '../models/Admin.js';
 import jwt from 'jsonwebtoken';
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'ponivraa_jwt_secret_key_2026', {
-    expiresIn: '30d',
+const generateToken = (id, email) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim() === '') {
+    throw new Error('JWT_SECRET is not configured on the server');
+  }
+  return jwt.sign({ id, email, role: 'admin' }, secret, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
+};
+
+const getCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  };
 };
 
 // @desc Admin login
 // @route POST /api/auth/login
-// @access Public
+// @access Public (Rate limited)
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    // 1. Input validation
+    if (!email || typeof email !== 'string' || !email.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide both email and password',
+        message: 'Admin email is required',
       });
     }
 
-    const admin = await Admin.findOne({ email: email.toLowerCase() });
+    if (!password || typeof password !== 'string' || !password.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required',
+      });
+    }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address format',
+      });
+    }
+
+    // 2. Locate admin record
+    const admin = await Admin.findOne({ email: cleanEmail });
     if (!admin) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: 'Invalid admin credentials',
       });
     }
 
-    const isMatch = await admin.matchPassword(password);
+    // 3. Bcrypt password verification
+    const isMatch = await admin.matchPassword(password.trim());
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password',
+        message: 'Invalid admin credentials',
       });
     }
 
-    const token = generateToken(admin._id);
+    // 4. Generate token and set HTTP-only cookie
+    const token = generateToken(admin._id, admin.email);
+    res.cookie('admin_token', token, getCookieOptions());
 
     return res.status(200).json({
       success: true,
-      message: 'Admin logged in successfully',
+      message: 'Admin authenticated successfully',
       data: {
         _id: admin._id,
         name: admin.name,
@@ -54,19 +89,40 @@ export const loginAdmin = async (req, res) => {
     console.error('Login error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error during login',
+      message: 'Server error during authentication',
       error: error.message,
     });
   }
 };
 
-// @desc Get current admin profile
-// @route GET /api/auth/me
+// @desc Admin logout
+// @route POST /api/auth/logout
+// @access Private (Admin)
+export const logoutAdmin = async (req, res) => {
+  try {
+    res.clearCookie('admin_token', getCookieOptions());
+    return res.status(200).json({
+      success: true,
+      message: 'Admin logged out successfully',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error during logout',
+      error: error.message,
+    });
+  }
+};
+
+// @desc Verify session / Get admin profile
+// @route GET /api/auth/me or GET /api/auth/verify
 // @access Private (Admin)
 export const getAdminProfile = async (req, res) => {
   try {
     return res.status(200).json({
       success: true,
+      authenticated: true,
       data: {
         _id: req.admin._id,
         name: req.admin.name,
@@ -76,9 +132,8 @@ export const getAdminProfile = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Error fetching profile',
+      message: 'Error verifying session',
       error: error.message,
     });
   }
 };
-

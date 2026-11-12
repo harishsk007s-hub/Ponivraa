@@ -224,7 +224,7 @@ export const Footer: React.FC = () => {
               </li>
               <li className="pt-2 border-t border-[#C8E6C9]">
                 <Link
-                  to="/admin"
+                  to="/admin/login"
                   className="inline-flex items-center gap-1.5 text-xs text-[#2E7D32] hover:text-[#1B4332] font-semibold"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-primary" />

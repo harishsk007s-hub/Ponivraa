@@ -74,7 +74,7 @@ export const Navbar: React.FC = () => {
             </NavLink>
             <span className="text-[#A5D6A7]">|</span>
             <Link
-              to="/admin"
+              to="/admin/login"
               className="flex items-center gap-1 hover:text-[#1B4332] transition-colors text-xs font-semibold"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />
@@ -447,12 +447,12 @@ export const Navbar: React.FC = () => {
             </a>
 
             <Link
-              to="/admin"
+              to="/admin/login"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center justify-center gap-2 text-xs text-[#2E7D32] hover:text-[#1B4332] py-1.5 font-semibold"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin Login Portal</span>
+              <span>Admin Portal</span>
             </Link>
           </div>
         </div>

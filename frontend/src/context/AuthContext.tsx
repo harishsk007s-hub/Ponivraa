@@ -6,7 +6,7 @@ interface AuthContextType {
   admin: AdminUser | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -24,36 +24,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const verifyToken = async () => {
+    const initializeAuth = async () => {
       const storedToken = localStorage.getItem(TOKEN_KEY);
-      if (!storedToken) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const user = await api.getAdminMe(storedToken);
-        setAdmin(user);
-        setToken(storedToken);
-      } catch (err) {
-        console.warn('Session expired or invalid:', err);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(ADMIN_KEY);
+      if (storedToken) {
+        try {
+          const user = await api.getAdminMe(storedToken);
+          setAdmin(user);
+          setToken(storedToken);
+        } catch (err) {
+          console.warn('Session expired or unauthorized, clearing local auth state.');
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(ADMIN_KEY);
+          setToken(null);
+          setAdmin(null);
+        }
+      } else {
         setToken(null);
         setAdmin(null);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
-    verifyToken();
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const data = await api.loginAdmin(email, password);
-      if (data.token) {
+      if (data && data.token) {
         localStorage.setItem(TOKEN_KEY, data.token);
         localStorage.setItem(ADMIN_KEY, JSON.stringify(data));
         setToken(data.token);
@@ -64,7 +63,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.logoutAdmin();
+    } catch (e) {
+      console.warn('Backend logout warning:', e);
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ADMIN_KEY);
     setToken(null);
@@ -85,4 +89,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
